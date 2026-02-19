@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 import fs from 'fs';
+import { build } from 'vite';
 
 const copyManifestPlugin = () => ({
   name: 'copy-manifest',
@@ -29,6 +30,8 @@ export default defineConfig({
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
+        // This is tricky because we want 'es' for UI but 'iife' for content.
+        // Vite's default is 'es'.
       },
     },
     outDir: 'dist',

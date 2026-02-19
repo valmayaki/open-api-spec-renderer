@@ -1,76 +1,100 @@
 import { isOpenApiSpec, isGitHubBlobUrl } from './detector';
 
-function openSwaggerUI(specUrl: string) {
-  const viewerUrl = chrome.runtime.getURL(`src/ui/index.html?spec=${encodeURIComponent(specUrl)}`);
-  chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: viewerUrl });
+function openInSwagger(specUrl: string) {
+  const uiUrl = chrome.runtime.getURL(`src/ui/index.html?spec=${encodeURIComponent(specUrl)}`);
+  chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: uiUrl });
 }
 
 async function init() {
   try {
-    const url = window.location.href;
-    
-    // GitHub Blob Page (Normal HTML)
-    if (isGitHubBlobUrl(url)) {
+    const currentUrl = window.location.href;
+
+    // GitHub Blob detection
+    if (isGitHubBlobUrl(currentUrl)) {
       const rawButton = document.querySelector('a#raw-url, a[data-testid="raw-button"]');
       if (rawButton && !document.getElementById('swagger-view-btn')) {
-        const swaggerBtn = document.createElement('button');
-        swaggerBtn.id = 'swagger-view-btn';
-        swaggerBtn.className = 'btn btn-sm BtnGroup-item';
-        swaggerBtn.innerText = 'View in Swagger UI';
-        swaggerBtn.style.marginLeft = '4px';
-        
-        const rawHref = rawButton.getAttribute('href') || '';
-        const fullRawUrl = rawHref.startsWith('http') ? rawHref : `https://github.com${rawHref}`;
-        
-        swaggerBtn.addEventListener('click', (e) => {
+        const btn = document.createElement('button');
+        btn.id = 'swagger-view-btn';
+        btn.className = 'btn btn-sm BtnGroup-item';
+        btn.innerText = 'View in Swagger UI';
+        btn.style.marginLeft = '4px';
+
+        const href = rawButton.getAttribute('href') || '';
+        const specUrl = href.startsWith('http') ? href : `https://github.com${href}`;
+
+        btn.addEventListener('click', (e) => {
           e.preventDefault();
-          openSwaggerUI(fullRawUrl);
+          openInSwagger(specUrl);
         });
-        rawButton.parentElement?.appendChild(swaggerBtn);
+
+        rawButton.parentElement?.appendChild(btn);
       }
       return;
     }
 
-    // For raw pages, GitHub often sandboxes JSON views or uses a built-in viewer.
-    // If we are in a sandboxed frame without 'allow-scripts', this script might be restricted.
-    // We check if we can actually manipulate the DOM and if it's likely a spec.
-    
-    // Skip if it's a known non-HTML response that might be sandboxed or if we're in a weird state
-    if (document.contentType === 'application/json' || url.includes('raw.githubusercontent.com')) {
-      // We still try to detect, but we are careful.
-      const content = document.body.innerText;
-      if (isOpenApiSpec(content)) {
-        if (!document.getElementById('swagger-view-bar')) {
-          const banner = document.createElement('div');
-          banner.id = 'swagger-view-bar';
-          banner.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; background: #333; color: white; padding: 10px; z-index: 999999; text-align: center; font-family: sans-serif;';
-          
-          const btn = document.createElement('button');
-          btn.innerText = 'Render in Swagger UI';
-          btn.style.cssText = 'background: #49cc90; color: white; border: none; margin-left: 10px; font-weight: bold; padding: 4px 12px; border-radius: 4px; cursor: pointer;';
-          btn.onclick = () => openSwaggerUI(url);
-          
-          const closeBtn = document.createElement('button');
-          closeBtn.innerText = 'Dismiss';
-          closeBtn.style.cssText = 'margin-left: 20px; background: none; border: 1px solid white; color: white; cursor: pointer; padding: 2px 8px; border-radius: 4px;';
-          closeBtn.onclick = () => banner.remove();
+    // Direct JSON/YAML view detection
+    const isRawView = document.contentType === 'application/json' || 
+                      currentUrl.includes('raw.githubusercontent.com');
 
-          banner.appendChild(document.createTextNode('This appears to be an OpenAPI spec. '));
-          banner.appendChild(btn);
-          banner.appendChild(closeBtn);
-          
-          document.body.prepend(banner);
-        }
+    if (isRawView) {
+      const content = document.body.innerText;
+      if (isOpenApiSpec(content) && !document.getElementById('swagger-view-bar')) {
+        const bar = document.createElement('div');
+        bar.id = 'swagger-view-bar';
+        bar.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          background: #333;
+          color: white;
+          padding: 10px;
+          z-index: 999999;
+          text-align: center;
+          font-family: sans-serif;
+        `;
+
+        const btn = document.createElement('button');
+        btn.innerText = 'Render in Swagger UI';
+        btn.style.cssText = `
+          background: #49cc90;
+          color: white;
+          border: none;
+          margin-left: 10px;
+          font-weight: bold;
+          padding: 4px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+        `;
+        btn.onclick = () => openInSwagger(currentUrl);
+
+        const dismiss = document.createElement('button');
+        dismiss.innerText = 'Dismiss';
+        dismiss.style.cssText = `
+          margin-left: 20px;
+          background: none;
+          border: 1px solid white;
+          color: white;
+          cursor: pointer;
+          padding: 2px 8px;
+          border-radius: 4px;
+        `;
+        dismiss.onclick = () => bar.remove();
+
+        bar.appendChild(document.createTextNode('This appears to be an OpenAPI spec. '));
+        bar.appendChild(btn);
+        bar.appendChild(dismiss);
+        document.body.prepend(bar);
       }
     }
-  } catch (e) {
-    console.debug('OpenAPI Spec Renderer: Skipping init due to environment restrictions', e);
+  } catch (err) {
+    console.debug('OpenAPI Spec Renderer: Skipping init due to environment restrictions', err);
   }
 }
 
-// Run init
+// Initial run
 init();
 
-// Handle GitHub navigation
+// Support GitHub's soft navigation
 document.addEventListener('pjax:end', init);
 document.addEventListener('turbo:load', init);
