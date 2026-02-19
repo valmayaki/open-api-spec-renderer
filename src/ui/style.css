@@ -1,0 +1,12 @@
+@import 'swagger-ui-dist/swagger-ui.css';
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #fafafa;
+}
+
+#swagger-ui {
+  height: 100vh;
+  overflow-y: auto;
+}

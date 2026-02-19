@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "OpenAPI Spec Renderer",
+  "version": "1.0.0",
+  "description": "View Swagger docs from JSON or YAML files in GitHub, raw.githubusercontent.com, or any OpenAPI spec URL.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "src/ui/index.html"
+  },
+  "background": {
+    "service_worker": "src/background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*",
+        "https://raw.githubusercontent.com/*",
+        "*://*/*.json*",
+        "*://*/*.yaml*",
+        "*://*/*.yml*"
+      ],
+      "js": ["src/content/index.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/ui/index.html", "assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
